@@ -2,6 +2,8 @@ package models
 
 import (
 	"encoding/json"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type (
@@ -30,8 +32,15 @@ type (
 	}
 
 	allCompanies struct {
+		Links struct {
+			Self struct {
+				Href   string `json:"href"`
+				Method string `json:"method"`
+			} `json:"self"`
+		} `json:"_links"`
 		Embedded struct {
 			Items []*company
+			Errors map[string]map[int]string `json:"errors"`
 		} `json:"_embedded"`
 	}
 )
@@ -124,10 +133,19 @@ func (c Cmpn) Add(cmpn *company) (int, error) {
 	fullData := map[string][]interface{}{"add": {data}}
 	jsonData, _ := json.Marshal(fullData)
 
+	log.WithFields(log.Fields{
+		"data": fmt.Sprintf("%s", jsonData),
+	}).Debug("Sending data")
+
 	resp, err := c.request.Post(companyUrl, jsonData)
 	if err != nil {
 		return 0, err
 	}
+
+	log.WithFields(log.Fields{
+		"data": fmt.Sprintf("%s", resp),
+	}).Debug("Responce data")
+
 	var newCompany allCompanies
 	json.Unmarshal(resp, &newCompany)
 	return newCompany.Embedded.Items[0].Id, nil
@@ -161,9 +179,14 @@ func (c Cmpn) Update(cmpn *company) error {
 	fullData := map[string][]interface{}{"update": {data}}
 	jsonData, _ := json.Marshal(fullData)
 
-	_, err := c.request.Post(companyUrl, jsonData)
+	resp, err := c.request.Post(companyUrl, jsonData)
 	if err != nil {
 		return err
 	}
+
+	log.WithFields(log.Fields{
+		"data": fmt.Sprintf("%s", resp),
+	}).Debug("Responce data")
+	
 	return nil
 }

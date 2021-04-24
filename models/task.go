@@ -3,6 +3,8 @@ package models
 import (
 	"encoding/json"
 	"strconv"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type (
@@ -31,8 +33,15 @@ type (
 	}
 
 	allTasks struct {
+		Links struct {
+			Self struct {
+				Href   string `json:"href"`
+				Method string `json:"method"`
+			} `json:"self"`
+		} `json:"_links"`
 		Embedded struct {
 			Items []*task
+			Errors map[string]map[int]string `json:"errors"`
 		} `json:"_embedded"`
 	}
 )
@@ -88,10 +97,19 @@ func (t Tsk) Add(tsk *task) (int, error) {
 	fullData := map[string][]interface{}{"add": {data}}
 	jsonData, _ := json.Marshal(fullData)
 
+	log.WithFields(log.Fields{
+		"data": fmt.Sprintf("%s", jsonData),
+	}).Debug("Sending data")
+
 	resp, err := t.request.Post(taskUrl, jsonData)
 	if err != nil {
 		return 0, err
 	}
+
+	log.WithFields(log.Fields{
+		"data": fmt.Sprintf("%s", resp),
+	}).Debug("Responce data")
+	
 	var newTask allTasks
 	json.Unmarshal(resp, &newTask)
 	return newTask.Embedded.Items[0].Id, nil
@@ -113,10 +131,19 @@ func (t Tsk) Update(tsk *task) error {
 	fullData := map[string][]interface{}{"update": {data}}
 	jsonData, _ := json.Marshal(fullData)
 
-	_, err := t.request.Post(taskUrl, jsonData)
+	log.WithFields(log.Fields{
+		"data": fmt.Sprintf("%s", jsonData),
+	}).Debug("Sending data")
+
+	resp, err := t.request.Post(taskUrl, jsonData)
 	if err != nil {
 		return err
 	}
+
+	log.WithFields(log.Fields{
+		"data": fmt.Sprintf("%s", resp),
+	}).Debug("Responce data")
+
 	return nil
 }
 
