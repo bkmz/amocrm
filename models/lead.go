@@ -2,7 +2,8 @@ package models
 
 import (
 	"encoding/json"
-	// "fmt"
+	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -52,8 +53,15 @@ type (
 	}
 
 	allLeads struct {
+		Links struct {
+			Self struct {
+				Href   string `json:"href"`
+				Method string `json:"method"`
+			} `json:"self"`
+		} `json:"_links"`
 		Embedded struct {
 			Items []*lead
+			Errors map[string]map[int]string `json:"errors"`
 		} `json:"_embedded"`
 	}
 )
@@ -178,10 +186,11 @@ func (l Ld) Add(ld *lead) (int, error) {
 
 	fullData := map[string][]interface{}{"add": {data}}
 	jsonData, _ := json.Marshal(fullData)
-	log.WithFields(log.Fields{
-		"data": jsonData,
-	}).Info("Sending data")
+	// log.WithFields(log.Fields{
+	// 	"data": jsonData,
+	// }).Info("Sending data")
 	// fmt.Printf("Sending data: %s", jsonData)
+	log.Debugf("Json data for lead create: %s", jsonData)
 
 	resp, err := l.request.Post(leadUrl, jsonData)
 	if err != nil {
@@ -207,7 +216,8 @@ func (l Ld) Update(ld *lead) error {
 	data["status_id"] = ld.StatusId
 	data["pipeline_id"] = ld.PipelineId
 	data["sale"] = ld.Sale
-	data["updated_at"] = ld.UpdatedAt + 1
+	// data["updated_at"] = ld.UpdatedAt + 1
+	data["updated_at"] = time.Now().Unix()
 	if ld.Company.Id != 0 {
 		data["company_id"] = ld.Company.Id
 	}
@@ -227,14 +237,24 @@ func (l Ld) Update(ld *lead) error {
 
 	fullData := map[string][]interface{}{"update": {data}}
 	jsonData, _ := json.Marshal(fullData)
-	// fmt.Printf("Sending data: %s", jsonData)
+	
 	log.WithFields(log.Fields{
-		"data": jsonData,
-	}).Info("Sending data")
+		"data": fmt.Sprintf("%s", jsonData),
+	}).Debug("Sending data")
 
-	_, err := l.request.Post(leadUrl, jsonData)
+	resp, err := l.request.Post(leadUrl, jsonData)
 	if err != nil {
 		return err
+	}
+
+	log.WithFields(log.Fields{
+		"data": fmt.Sprintf("%s", resp),
+	}).Debug("Responce data")
+
+	var newLead allLeads
+	json.Unmarshal(resp, &newLead)
+	if newLead.Embedded.Errors != nil {
+		return fmt.Errorf("Can't update lead %d, reason: %s", ld.Id, newLead.Embedded.Errors["update"][ld.Id])
 	}
 	return nil
 }
